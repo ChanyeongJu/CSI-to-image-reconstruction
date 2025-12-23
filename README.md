@@ -47,4 +47,12 @@ Deploy the trained model for live image reconstruction.
     ```
 3.  **Visualize**: Open `http://localhost:8000` in your browser to see the real-time reconstruction.
 
+## References
+
+- **MoPoEVAE Implementation**: 
+  - Based on the paper: [Sutter, T., Daunhawer, I., & Vogt, J. (2021). Generalized Multimodal ELBO](https://arxiv.org/abs/2105.02470).
+  - Original Code: [thomassutter/MoPoE](https://github.com/thomassutter/MoPoE)
+- **KL Approximation**:
+  - Implementation from: [senya-ashukha/variational-dropout-sparsifies-dnn](https://github.com/senya-ashukha/variational-dropout-sparsifies-dnn)
+
 
