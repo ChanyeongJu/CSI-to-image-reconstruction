@@ -2,6 +2,7 @@ import concurrent.futures
 import multiprocessing
 import asyncio
 import os
+import logging
 from pathlib import Path
 from io import BytesIO
 from time import time
@@ -10,6 +11,13 @@ import numpy as np
 import cv2
 from PIL import Image
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 UDP_HOST = '0.0.0.0'
 CSI_UDP_PORT = 8000
@@ -38,7 +46,7 @@ async def stats_printer():
     global csi_count, image_count
     while True:
         await asyncio.sleep(1.0)
-        print(f'[STATS] CSI: {csi_count} Hz | Image: {image_count} Hz')
+        logger.info(f'CSI: {csi_count} Hz | Image: {image_count} Hz')
         csi_count = 0
         image_count = 0
 
@@ -67,7 +75,7 @@ def save_image_worker(data_id, raw_data, queue):
         if not queue.full():
             queue.put_nowait(raw_data)
     except Exception as e:
-        print(f'Image Processing Error: {e}')
+        logger.error(f'Image save error: {e}')
 
 
 def display_worker(queue):
@@ -75,7 +83,6 @@ def display_worker(queue):
         try:
             image_data = queue.get()
             if image_data is None:
-                print("Inference worker received shutdown signal.")
                 break
 
             np_arr = np.frombuffer(image_data, np.uint8)
@@ -91,7 +98,7 @@ def display_worker(queue):
 
 class CsiUdpServerProtocol:
     def connection_made(self, transport):
-        print(f'CSI UDP server started on {CSI_UDP_PORT}')
+        logger.info(f'CSI server started on port {CSI_UDP_PORT}')
 
     def datagram_received(self, data, addr):
         global current_id, csi_count
@@ -104,12 +111,15 @@ class CsiUdpServerProtocol:
                     executor, save_csi_worker, current_id, decoded_data
                 )
         except Exception as e:
-            print(f'CSI UDP Error: {e}')
+            logger.error(f'CSI UDP error: {e}')
+
+    def connection_lost(self, exc):
+        pass
 
 
 class ImageUdpServerProtocol:
     def connection_made(self, transport):
-        print(f'Image UDP server started on {IMAGE_UDP_PORT}')
+        logger.info(f'Image server started on port {IMAGE_UDP_PORT}')
 
     def datagram_received(self, data, addr):
         global image_count
@@ -119,7 +129,10 @@ class ImageUdpServerProtocol:
                 executor, save_image_worker, current_id, data, image_queue
             )
         except Exception as e:
-            print(f'Image UDP Error: {e}')
+            logger.error(f'Image UDP error: {e}')
+
+    def connection_lost(self, exc):
+        pass
 
 
 async def main():
@@ -127,8 +140,6 @@ async def main():
 
     display_proc = multiprocessing.Process(target=display_worker, args=(image_queue, ))
     display_proc.start()
-
-    asyncio.create_task(stats_printer())
 
     csi_transport, _ = await loop.create_datagram_endpoint(
         lambda: CsiUdpServerProtocol(),
@@ -140,20 +151,38 @@ async def main():
         local_addr=(UDP_HOST, IMAGE_UDP_PORT)
     )
 
+    stats_task = asyncio.create_task(stats_printer())
+
     try:
-        print('Servers are running. Press Ctrl+C to stop.')
+        logger.info('Servers are running. Press Ctrl+C to stop.')
         while True:
             await asyncio.sleep(3600.0)
+    except asyncio.CancelledError:
+        pass
     finally:
+        stats_task.cancel()
+        try:
+            await stats_task
+        except asyncio.CancelledError:
+            pass
+
         csi_transport.close()
         image_transport.close()
+        
+        try:
+            image_queue.put(None)
+        except:
+            pass
+
         executor.shutdown(wait=True)
-        image_queue.close()
-        image_queue.join_thread() 
+        
         display_proc.join(timeout=5)
         if display_proc.is_alive():
-            print("Worker did not terminate, forcing termination...")
             display_proc.terminate()
+            display_proc.join()
+
+        image_queue.close()
+        image_queue.join_thread() 
 
 
 if __name__ == '__main__':
@@ -161,4 +190,6 @@ if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        logger.info("Interrupted by user. Shutting down...")
+    finally:
+        logger.info("Shutdown complete.")
