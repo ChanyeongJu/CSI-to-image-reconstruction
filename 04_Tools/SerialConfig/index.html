@@ -337,6 +337,8 @@
             if (pwd) await sendCmd(`SET_PWD:${pwd}`);
             if (ip) await sendCmd(`SET_IP:${ip}`);
             if (portVal) await sendCmd(`SET_PORT:${portVal}`);
+
+            log("Settings saved to NVS. Please reboot the device to apply new network configuration.", 'log-sys');
         });
 
         btnRestart.addEventListener('click', () => sendCmd("RESTART"));
