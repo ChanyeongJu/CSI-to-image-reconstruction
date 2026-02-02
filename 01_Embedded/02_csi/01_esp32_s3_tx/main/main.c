@@ -17,7 +17,7 @@
 
 static const char *TAG = "CSI-TX";
 
-static uint8_t s_peer_mac[ESP_NOW_ETH_ALEN] = {0xfc, 0x01, 0x2c, 0xd5, 0x75, 0x84};
+static uint8_t s_peer_mac[ESP_NOW_ETH_ALEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 static void esp_now_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
