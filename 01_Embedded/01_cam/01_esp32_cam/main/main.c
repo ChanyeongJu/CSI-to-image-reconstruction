@@ -98,8 +98,8 @@ static camera_config_t camera_config = {
 
     .xclk_freq_hz   = 20000000,
     .pixel_format   = PIXFORMAT_JPEG,
-    .frame_size     = FRAMESIZE_QVGA,
-    .jpeg_quality   = 30,
+    .frame_size     = FRAMESIZE_VGA,
+    .jpeg_quality   = 12,
     .fb_count       = 2,
 
     .fb_location    = CAMERA_FB_IN_PSRAM,
@@ -131,7 +131,7 @@ void udp_image_send_task(void *pvParameters) {
         camera_fb_t *pic = esp_camera_fb_get();
         if (!pic) {
             ESP_LOGE(TAG, "Failed to capture image");
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(1);
             continue;
         }
 
@@ -139,9 +139,6 @@ void udp_image_send_task(void *pvParameters) {
         sendto(sock, pic->buf, pic->len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
 
         esp_camera_fb_return(pic);
-        
-        // Brief delay to avoid flooding and allow other tasks to run
-        vTaskDelay(pdMS_TO_TICKS(50)); 
     }
 }
 
@@ -219,8 +216,8 @@ void uart_console_task(void *pvParameters) {
                 vTaskDelay(pdMS_TO_TICKS(500));
                 esp_restart();
             } else if (strncmp(buf, "GET_CONFIG", 10) == 0) {
-                char msg[192];
-                snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID: %s, PWD: ****, IP: %s, Port: %d\n", s_wifi_ssid, s_server_ip, s_server_port);
+                char msg[256];
+                snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID: %s, PWD: %s, IP: %s, Port: %d\n", s_wifi_ssid, s_wifi_pwd, s_server_ip, s_server_port);
                 uart_write_bytes(UART_NUM_0, msg, strlen(msg));
             } else if (strncmp(buf, "HELP", 4) == 0) {
                 const char* help = "\n--- Commands ---\nSET_SSID:xxxx\nSET_PWD:xxxx\nSET_IP:x.x.x.x\nSET_PORT:xxxx\nGET_CONFIG\nRESTART\n-----------------\n";
@@ -243,7 +240,6 @@ void app_main(void) {
         return;
     }
 
-    // Initialize UART for console input
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,

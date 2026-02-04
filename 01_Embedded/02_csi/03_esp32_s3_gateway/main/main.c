@@ -207,8 +207,8 @@ void uart_console_task(void *pvParameters) {
                 vTaskDelay(pdMS_TO_TICKS(500));
                 esp_restart();
             } else if (strncmp(buf, "GET_CONFIG", 10) == 0) {
-                char msg[192];
-                snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID: %s, PWD: ****, IP: %s, Port: %d\n", s_wifi_ssid, s_server_ip, s_server_port);
+                char msg[256];
+                snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID: %s, PWD: %s, IP: %s, Port: %d\n", s_wifi_ssid, s_wifi_pwd, s_server_ip, s_server_port);
                 uart_write_bytes(UART_NUM_0, msg, strlen(msg));
             } else if (strncmp(buf, "HELP", 4) == 0) {
                 const char* help = "\n--- Commands ---\nSET_SSID:xxxx\nSET_PWD:xxxx\nSET_IP:x.x.x.x\nSET_PORT:xxxx\nGET_CONFIG\nRESTART\n-----------------\n";
@@ -255,6 +255,6 @@ void app_main(void) {
     uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_0, &uart0_config);
 
-    xTaskCreate(&udp_csi_send_task, "udp_csi_send_task", 4096, NULL, 10, NULL);
+    xTaskCreate(udp_csi_send_task, "udp_csi_send_task", 4096, NULL, 10, NULL);
     xTaskCreate(uart_console_task, "uart_console_task", 4096, NULL, 1, NULL);
 }

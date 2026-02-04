@@ -13,7 +13,6 @@
 
 #include "lwip/sockets.h"
 
-
 #define DEFAULT_WIFI_SSID   "WIFI_SSID"
 #define DEFAULT_WIFI_PWD    "WIFI_PASSWORD"
 #define DEFAULT_SERVER_IP   "192.168.7.45"
@@ -217,8 +216,8 @@ void uart_console_task(void *pvParameters) {
                 vTaskDelay(pdMS_TO_TICKS(500));
                 esp_restart();
             } else if (strncmp(buf, "GET_CONFIG", 10) == 0) {
-                char msg[192];
-                snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID: %s, PWD: ****, IP: %s, Port: %d\n", s_wifi_ssid, s_server_ip, s_server_port);
+                char msg[256];
+                snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID: %s, PWD: %s, IP: %s, Port: %d\n", s_wifi_ssid, s_wifi_pwd, s_server_ip, s_server_port);
                 uart_write_bytes(UART_NUM_0, msg, strlen(msg));
             } else if (strncmp(buf, "HELP", 4) == 0) {
                 const char* help = "\n--- Commands ---\nSET_SSID:xxxx\nSET_PWD:xxxx\nSET_IP:x.x.x.x\nSET_PORT:xxxx\nGET_CONFIG\nRESTART\n-----------------\n";
@@ -241,7 +240,6 @@ void app_main(void) {
         return;
     }
 
-    // Initialize UART for console input
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,

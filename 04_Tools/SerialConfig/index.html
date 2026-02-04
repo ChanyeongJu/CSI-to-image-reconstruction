@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,8 +39,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         h1 {
@@ -170,9 +178,17 @@
             border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
-        .log-entry { margin-bottom: 4px; }
-        .log-sys { color: #38bdf8; }
-        .log-err { color: #f87171; }
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-sys {
+            color: #38bdf8;
+        }
+
+        .log-err {
+            color: #f87171;
+        }
 
         footer {
             margin-top: 2rem;
@@ -181,11 +197,12 @@
         }
     </style>
 </head>
+
 <body>
 
     <div class="container">
         <h1>Configuration Utility</h1>
-        
+
         <div class="status-bar">
             <span id="statusDot" class="status-dot"></span>
             <span id="statusText">Device Not Connected</span>
@@ -241,7 +258,7 @@
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const consoleDiv = document.getElementById('console');
-        
+
         const ipInput = document.getElementById('ipInput');
         const portInput = document.getElementById('portInput');
         const ssidInput = document.getElementById('ssidInput');
@@ -255,16 +272,29 @@
             consoleDiv.scrollTop = consoleDiv.scrollHeight;
         };
 
-        const updateUI = (connected) => {
-            if (connected) {
+        const updateUI = (state) => {
+            if (state === 'CONNECTED') {
                 statusDot.classList.add('connected');
                 statusText.textContent = "Connected (115200bps)";
                 btnConnect.textContent = "Disconnect";
+                btnConnect.disabled = false;
+            } else if (state === 'SYNCING') {
+                statusDot.classList.add('connected');
+                statusText.textContent = "Syncing configuration...";
+                btnConnect.textContent = "Disconnect";
+                btnConnect.disabled = false;
+                [ssidInput, pwdInput, ipInput, portInput, btnApply, btnRestart, btnGetConfig, btnClear].forEach(el => el.disabled = true);
+            } else if (state === 'READY') {
+                statusDot.classList.add('connected');
+                statusText.textContent = "Device Ready";
+                btnConnect.textContent = "Disconnect";
+                btnConnect.disabled = false;
                 [ssidInput, pwdInput, ipInput, portInput, btnApply, btnRestart, btnGetConfig, btnClear].forEach(el => el.disabled = false);
             } else {
                 statusDot.classList.remove('connected');
                 statusText.textContent = "Device Not Connected";
                 btnConnect.textContent = "Connect Device";
+                btnConnect.disabled = false;
                 [ssidInput, pwdInput, ipInput, portInput, btnApply, btnRestart, btnGetConfig, btnClear].forEach(el => el.disabled = true);
             }
         };
@@ -278,12 +308,45 @@
                         if (done) break;
                         const text = new TextDecoder().decode(value);
                         inputBuffer += text;
-                        
+
                         if (inputBuffer.includes('\n')) {
                             const lines = inputBuffer.split('\n');
                             inputBuffer = lines.pop();
                             lines.forEach(line => {
-                                if (line.trim()) log(line.trim());
+                                const trimmed = line.trim();
+                                if (trimmed) {
+                                    log(trimmed);
+                                    // Parse config info: [INFO] Current Config - SSID: x, PWD: y, IP: z, Port: w
+                                    if (trimmed.includes("[INFO] Current Config")) {
+                                        try {
+                                            const parts = trimmed.split(" - ")[1].split(", ");
+                                            const config = {};
+                                            parts.forEach(p => {
+                                                const [key, val] = p.split(": ");
+                                                config[key] = val;
+                                            });
+
+                                            if (config.SSID) ssidInput.value = config.SSID;
+                                            if (config.PWD) pwdInput.value = config.PWD;
+                                            if (config.IP) ipInput.value = config.IP;
+                                            if (config.Port) portInput.value = config.Port;
+
+                                            log("Device configuration synchronized.", "log-sys");
+                                            if (syncInterval) {
+                                                clearInterval(syncInterval);
+                                                syncInterval = null;
+                                                updateUI('READY');
+                                            }
+                                        } catch (e) {
+                                            console.error("Failed to parse config", e);
+                                        }
+                                    }
+                                    // Handle reboot or ready message
+                                    if (trimmed.includes("[SYSTEM] ESP32-S3 Gateway Ready")) {
+                                        log("Device reboot detected. Re-syncing...", "log-sys");
+                                        startSync();
+                                    }
+                                }
                             });
                         }
                     }
@@ -295,13 +358,44 @@
             }
         }
 
+        let syncInterval = null;
+
+        const startSync = () => {
+            if (syncInterval) clearInterval(syncInterval);
+            updateUI('SYNCING');
+            log("Waiting for device boot and configuration...", "log-sys");
+
+            // Initial attempt
+            sendCmd("GET_CONFIG");
+
+            // Repeatedly check until config is received
+            syncInterval = setInterval(() => {
+                if (port) {
+                    sendCmd("GET_CONFIG");
+                } else {
+                    clearInterval(syncInterval);
+                    syncInterval = null;
+                }
+            }, 1000);
+        };
+
         btnConnect.addEventListener('click', async () => {
             if (port) {
-                await writer.close();
-                await reader.cancel();
+                if (syncInterval) {
+                    clearInterval(syncInterval);
+                    syncInterval = null;
+                }
+                if (writer) {
+                    await writer.close();
+                    writer = null;
+                }
+                if (reader) {
+                    await reader.cancel();
+                    reader = null;
+                }
                 await port.close();
                 port = null;
-                updateUI(false);
+                updateUI('DISCONNECTED');
                 log("Disconnected.", 'log-sys');
                 return;
             }
@@ -309,14 +403,15 @@
             try {
                 port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200 });
-                
+
                 writer = port.writable.getWriter();
-                updateUI(true);
                 log("Successfully connected.", 'log-sys');
-                
+
                 readLoop();
+                startSync();
             } catch (err) {
                 log("Connection failed: " + err, 'log-err');
+                updateUI('DISCONNECTED');
             }
         });
 
@@ -332,7 +427,7 @@
             const pwd = pwdInput.value.trim();
             const ip = ipInput.value.trim();
             const portVal = portInput.value.trim();
-            
+
             if (ssid) await sendCmd(`SET_SSID:${ssid}`);
             if (pwd) await sendCmd(`SET_PWD:${pwd}`);
             if (ip) await sendCmd(`SET_IP:${ip}`);
@@ -350,4 +445,5 @@
 
     </script>
 </body>
+
 </html>
