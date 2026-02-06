@@ -217,7 +217,6 @@ static void process_command(char *line) {
         const char* help = "\n--- Commands ---\nSET_SSID:xxxx\nSET_PWD:xxxx\nSET_IP:x.x.x.x\nSET_PORT:xxxx\nGET_CONFIG\nRESTART\n-----------------\n";
         uart_write_bytes(UART_NUM_0, help, strlen(help));
     } else {
-        // Unknown command
         char msg[128];
         snprintf(msg, sizeof(msg), "[ERR] Unknown command: %s\n", line);
         uart_write_bytes(UART_NUM_0, msg, strlen(msg));
@@ -234,7 +233,7 @@ void uart_console_task(void *pvParameters) {
         int len = uart_read_bytes(UART_NUM_0, buf, 1024, 20 / portTICK_PERIOD_MS);
         for (int i = 0; i < len; i++) {
             if (buf[i] == '\n' || buf[i] == '\r') {
-                if (line_idx > 0) { // Only process if line is not empty
+                if (line_idx > 0) {
                     line[line_idx] = '\0';
                     process_command(line);
                     line_idx = 0;
@@ -270,7 +269,6 @@ void app_main(void) {
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT,
     };
-    // Increased RX buffer size to 1024 to handle rapid commands
     uart_driver_install(UART_NUM_0, 1024, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_0, &uart_config);
 

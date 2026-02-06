@@ -200,7 +200,6 @@ static void process_command(char *line) {
         esp_restart();
     } else if (strncmp(line, "GET_CONFIG", 10) == 0) {
         char msg[256];
-        // Standardized format for tool compatibility
         snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID:%s, PWD:%s, IP:%s, Port:%d\n", 
                  s_wifi_ssid, s_wifi_pwd, s_server_ip, s_server_port);
         uart_write_bytes(UART_NUM_0, msg, strlen(msg));
@@ -221,7 +220,7 @@ void uart_console_task(void *pvParameters) {
         int len = uart_read_bytes(UART_NUM_0, buf, 1024, 20 / portTICK_PERIOD_MS);
         for (int i = 0; i < len; i++) {
             if (buf[i] == '\n' || buf[i] == '\r') {
-                if (line_idx > 0) { // Only process if line is not empty
+                if (line_idx > 0) {
                     line[line_idx] = '\0';
                     process_command(line);
                     line_idx = 0;
@@ -261,7 +260,6 @@ void app_main(void) {
 
     wifi_init_sta();
 
-    // Initialize UART0 for console input
     uart_config_t uart0_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
