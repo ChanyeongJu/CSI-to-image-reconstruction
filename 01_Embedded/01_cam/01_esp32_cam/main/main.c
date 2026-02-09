@@ -210,11 +210,16 @@ static void process_command(char *line) {
         esp_restart();
     } else if (strncmp(line, "GET_CONFIG", 10) == 0) {
         char msg[256];
-        snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID:%s, PWD:%s, IP:%s, Port:%d\n", s_wifi_ssid, s_wifi_pwd, s_server_ip, s_server_port);
+        snprintf(msg, sizeof(msg), "[INFO] Current Config - SSID:%s, PWD:%s, IP:%s, Port:%d\n", 
+                 s_wifi_ssid, s_wifi_pwd, s_server_ip, s_server_port);
         uart_write_bytes(UART_NUM_0, msg, strlen(msg));
     } else if (strncmp(line, "HELP", 4) == 0) {
         const char* help = "\n--- Commands ---\nSET_SSID:xxxx\nSET_PWD:xxxx\nSET_IP:x.x.x.x\nSET_PORT:xxxx\nGET_CONFIG\nRESTART\n-----------------\n";
         uart_write_bytes(UART_NUM_0, help, strlen(help));
+    } else {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "[ERR] Unknown command: %s\n", line);
+        uart_write_bytes(UART_NUM_0, msg, strlen(msg));
     }
 }
 
@@ -224,11 +229,12 @@ void uart_console_task(void *pvParameters) {
     int line_idx = 0;
 
     uart_write_bytes(UART_NUM_0, "\n[SYSTEM] ESP32-CAM Ready. Type HELP for commands.\n", 51);
+    
     while (1) {
         int len = uart_read_bytes(UART_NUM_0, buf, 1024, 20 / portTICK_PERIOD_MS);
         for (int i = 0; i < len; i++) {
             if (buf[i] == '\n' || buf[i] == '\r') {
-                if (line_idx > 0) { // Only process if line is not empty
+                if (line_idx > 0) {
                     line[line_idx] = '\0';
                     process_command(line);
                     line_idx = 0;

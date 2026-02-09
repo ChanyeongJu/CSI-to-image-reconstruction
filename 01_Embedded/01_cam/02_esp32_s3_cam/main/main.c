@@ -228,7 +228,8 @@ void uart_console_task(void *pvParameters) {
     char line[128];
     int line_idx = 0;
 
-    uart_write_bytes(UART_NUM_0, "\n[SYSTEM] ESP32-S3 CAM Ready. Type HELP for commands.\n", 54);
+    uart_write_bytes(UART_NUM_0, "\n[SYSTEM] ESP32-S3-CAM Ready. Type HELP for commands.\n", 54);
+    
     while (1) {
         int len = uart_read_bytes(UART_NUM_0, buf, 1024, 20 / portTICK_PERIOD_MS);
         for (int i = 0; i < len; i++) {

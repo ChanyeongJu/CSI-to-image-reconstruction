@@ -206,6 +206,10 @@ static void process_command(char *line) {
     } else if (strncmp(line, "HELP", 4) == 0) {
         const char* help = "\n--- Commands ---\nSET_SSID:xxxx\nSET_PWD:xxxx\nSET_IP:x.x.x.x\nSET_PORT:xxxx\nGET_CONFIG\nRESTART\n-----------------\n";
         uart_write_bytes(UART_NUM_0, help, strlen(help));
+    } else {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "[ERR] Unknown command: %s\n", line);
+        uart_write_bytes(UART_NUM_0, msg, strlen(msg));
     }
 }
 
