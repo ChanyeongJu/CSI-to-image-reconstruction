@@ -13,11 +13,27 @@ This project implements a system for reconstructing images from Channel State In
 - **03_Model_Training/**: Machine learning model training scripts.
   - `01_MoPoEVAE/`: Mixture-of-Product-of-Experts VAE implementation.
   - `02_VAE/`: Standard VAE implementation.
+  - `03_Mesh/`: CSI-to-3D human mesh reconstruction.
+- **04_Tools/**: Utility tools for development and configuration.
+  - `SerialConfig/`: Web-based (Web Serial API) tool for dynamic IP/Port configuration.
 
 ## Configuration
 
-- **Embedded**: Update `sdkconfig.defaults` (WiFi) and source code (MAC addresses for TX, Server IP for Gateway/Camera) in `01_Embedded`.
+- **Embedded**: Network settings (WiFi SSID/PWD, Server IP/Port) can be configured dynamically via the Web Serial Tool or UART.
 - **Server**: Ensure the model checkpoint path is correct in `02_Server/02_Streaming/main.py`.
+
+## Network Configuration
+
+The Gateway and Camera modules allow real-time modification of Wi-Fi credentials (SSID/Password) and the target server address (IP/Port) without re-flashing the firmware. This configuration is stored in NVS (Non-Volatile Storage) and persists across reboots.
+
+### How to Configure Network Settings
+
+1.  Open `04_Tools/SerialConfig/index.html` in a Web Serial API supported browser (e.g., Chrome, Edge).
+2.  Connect your device (Gateway or Camera) via USB (UART0).
+3.  Click "Connect Device", select the COM port (115200 bps).
+4.  Enter the desired Wi-Fi SSID, Password, Server IP, and Port.
+5.  Click "Apply Settings". The tool sends the configuration commands and saves them to NVS.
+6.  Click "Reboot Device" to apply the new settings.
 
 ## Workflows
 
@@ -25,27 +41,23 @@ This project implements a system for reconstructing images from Channel State In
 Manage the full pipeline from raw signal gathering to model training.
 
 1.  **Flash Firmware**: Build and flash the TX, RX, Gateway, and Camera firmware from `01_Embedded`.
-2.  **Collect Data**: Run the collection server to save synchronized CSI and image data.
+2.  **Configure**: Use the Web Serial Tool to point all nodes to your server IP.
+3.  **Collect Data**: Run the collection server to save synchronized CSI and image data.
     ```bash
     cd 02_Server/01_Data_Collection
     python main.py
     ```
-3.  **Train Model**: Run the training scripts in `03_Model_Training` using the collected dataset.
-    ```bash
-    cd 03_Model_Training/02_VAE
-    python train.py
-    ```
+4.  **Train Model**: Perform model training using the collected and aligned dataset. Training logic for different architectures is located in the `03_Model_Training` directory.
 
 ### 2. Real-time Streaming
 Deploy the trained model for live image reconstruction.
 
-1.  **Flash Firmware**: Ensure the Gateway is flashed with the streaming firmware.
-2.  **Run Inference Server**: Execute the FastAPI server to process live CSI and serve the reconstructed images.
+1.  **Run Inference Server**: Execute the FastAPI server to process live CSI and serve the reconstructed images.
     ```bash
     cd 02_Server/02_Streaming
     uvicorn main:app --host 0.0.0.0 --port 8000
     ```
-3.  **Visualize**: Open `http://localhost:8000` in your browser to see the real-time reconstruction.
+2.  **Visualize**: Open `http://localhost:8000` in your browser to see the real-time reconstruction.
 
 ## References
 
